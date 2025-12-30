@@ -7,6 +7,12 @@
 
 import Foundation
 
+/// 认证通知名称
+extension Notification.Name {
+    /// 认证失效通知（当 Token 过期时发送）
+    static let authenticationInvalidated = Notification.Name("authenticationInvalidated")
+}
+
 /// 认证仓库（聚合 API 服务和 Token 管理）
 ///
 /// 职责：
@@ -99,6 +105,24 @@ final class AuthRepository {
 
         // 清除服务器配置
         try await keychain.delete(for: Key.serverConfig)
+    }
+
+    /// 处理认证失效（当 Token 过期时调用）
+    func handleAuthenticationInvalidated() async {
+        do {
+            // 清除过期的认证信息
+            try await logout()
+
+            // 发送通知，通知所有监听者
+            NotificationCenter.default.post(
+                name: .authenticationInvalidated,
+                object: nil
+            )
+
+            print("认证已失效，已清除登录信息")
+        } catch {
+            print("清除登录信息失败: \(error)")
+        }
     }
 
     /// 检查是否已登录

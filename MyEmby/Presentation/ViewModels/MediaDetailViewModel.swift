@@ -33,8 +33,14 @@ final class MediaDetailViewModel {
     /// 演员列表
     var cast: [NamePair] = []
 
+    /// 演员 ID 到头像 URL 的映射
+    var castImageURLs: [String: URL] = [:]
+
     /// 相关推荐
     var relatedItems: [EmbyItem] = []
+
+    /// 相关推荐图片 URL 映射
+    var relatedItemImageURLs: [String: URL] = [:]
 
     /// 季列表（用于剧集）
     var seasons: [EmbyItem] = []
@@ -47,6 +53,12 @@ final class MediaDetailViewModel {
 
     /// 当前季的剧集列表
     var episodes: [EmbyItem] = []
+
+    /// 剧集图片 URL 映射
+    var episodeImageURLs: [String: URL] = [:]
+
+    /// 剧集排序方向（true = 升序，false = 降序）
+    var isEpisodesAscending = true
 
     // MARK: - 依赖
 
@@ -101,12 +113,16 @@ final class MediaDetailViewModel {
                 )
             }
 
-            // 4. 获取演员列表
+            // 4. 获取演员列表并加载头像
             if let people = detailItem.people {
-                self.cast = people.filter { person in
+                let filteredCast = people.filter { person in
                     // 过滤演员和导演
                     person.id != nil && person.name != nil
                 }
+                self.cast = filteredCast
+
+                // 加载演员头像
+                await loadCastImages(cast: filteredCast, mediaRepository: mediaRepository)
             }
 
             // 5. 根据类型加载相关内容
@@ -148,23 +164,130 @@ final class MediaDetailViewModel {
         print("标记播放状态（待实现）")
     }
 
+    /// 获取演员头像 URL
+    /// - Parameter personId: 演员 ID
+    /// - Returns: 头像 URL（如果存在）
+    func getCastImageURL(for personId: String) -> URL? {
+        castImageURLs[personId]
+    }
+
     /// 加载指定季的剧集
     func loadEpisodes(for seasonId: String, mediaRepository: MediaRepository) async {
         do {
+            let sortOrder = isEpisodesAscending ? "Ascending" : "Descending"
             let response = try await mediaRepository.getItems(
                 parentId: seasonId,
                 includeItemTypes: ["Episode"],
-                sortBy: "SortName",
-                sortOrder: "Ascending"
+                sortBy: "IndexNumber",  // 使用 indexNumber 排序
+                sortOrder: sortOrder
             )
             self.episodes = response.items
+
+            // 加载剧集图片
+            await loadEpisodeImages(episodes: response.items, mediaRepository: mediaRepository)
 
         } catch {
             print("加载剧集失败: \(error)")
         }
     }
 
+    /// 加载剧集图片
+    private func loadEpisodeImages(episodes: [EmbyItem], mediaRepository: MediaRepository) async {
+        await withTaskGroup(of: (String, URL).self) { group in
+            for episode in episodes {
+                // 尝试获取剧集的主图
+                guard let imageTag = episode.imageTags?.primary else {
+                    continue
+                }
+
+                group.addTask {
+                    do {
+                        let url = try await mediaRepository.getImageURL(
+                            itemId: episode.id,
+                            imageType: .primary,
+                            maxWidth: 300,
+                            maxHeight: 170,
+                            tag: imageTag
+                        )
+                        return (episode.id, url)
+                    } catch {
+                        return (episode.id, URL(string: "about:blank")!)
+                    }
+                }
+            }
+
+            // 收集结果
+            for await (episodeId, url) in group {
+                if url.scheme != "about" {
+                    episodeImageURLs[episodeId] = url
+                }
+            }
+        }
+    }
+
+    /// 获取剧集图片 URL
+    func getEpisodeImageURL(for episodeId: String) -> URL? {
+        episodeImageURLs[episodeId]
+    }
+
+    /// 切换剧集排序方向
+    func toggleEpisodeSortOrder() async {
+        isEpisodesAscending.toggle()
+
+        // 重新加载剧集
+        if let season = selectedSeason {
+            let apiService = try? await authRepository.getAPIService()
+            if let apiService = apiService {
+                let mediaRepository = MediaRepository.create(
+                    apiService: apiService,
+                    authRepository: authRepository
+                )
+                await loadEpisodes(for: season.id, mediaRepository: mediaRepository)
+            }
+        }
+    }
+
     // MARK: - 私有方法
+
+    /// 加载演员头像
+    private func loadCastImages(cast: [NamePair], mediaRepository: MediaRepository) async {
+        // 并行加载演员头像
+        await withTaskGroup(of: (String, URL).self) { group in
+            for person in cast {
+                guard let personId = person.id,
+                      let imageTag = person.primaryImageTag else {
+                    continue
+                }
+
+                group.addTask {
+                    do {
+                        // Emby API 人员图片端点格式：
+                        // /Users/{userId}/Items/{itemId}/Images/Primary/{personId}
+                        // 这里使用 itemId 作为媒体项 ID，personId 作为人员 ID
+                        let sessionInfo = try await self.authRepository.getSessionInfo()
+                        let serverURL = try await self.authRepository.getServerConfig().serverURL
+
+                        // 构建 URL
+                        let urlString = "\(serverURL)/Users/\(sessionInfo.userId)/Items/\(self.itemId)/Images/Primary/\(personId)?tag=\(imageTag)&maxWidth=200&maxHeight=200"
+
+                        if let url = URL(string: urlString) {
+                            return (personId, url)
+                        }
+                    } catch {
+                        print("加载演员头像失败: \(error)")
+                    }
+                    return (personId, URL(string: "about:blank")!)
+                }
+            }
+
+            // 收集结果
+            for await (personId, url) in group {
+                if url.scheme != "about" {
+                    castImageURLs[personId] = url
+                }
+            }
+        }
+    }
 
     /// 加载季列表
     private func loadSeasons(mediaRepository: MediaRepository) async {
@@ -219,9 +342,52 @@ final class MediaDetailViewModel {
             // 排除当前项
             self.relatedItems = response.items.filter { $0.id != itemId }
 
+            // 加载相关推荐的图片
+            await loadRelatedItemImages(items: self.relatedItems, mediaRepository: mediaRepository)
+
         } catch {
             print("加载相关推荐失败: \(error)")
         }
+    }
+
+    /// 加载相关推荐图片
+    private func loadRelatedItemImages(items: [EmbyItem], mediaRepository: MediaRepository) async {
+        await withTaskGroup(of: (String, URL).self) { group in
+            for item in items {
+                // 只加载有图片标签的项目
+                guard let imageTag = item.imageTags?.primary else {
+                    continue
+                }
+
+                group.addTask {
+                    do {
+                        let url = try await mediaRepository.getImageURL(
+                            itemId: item.id,
+                            imageType: .primary,
+                            maxWidth: 300,
+                            maxHeight: 450,
+                            tag: imageTag
+                        )
+                        return (item.id, url)
+                    } catch {
+                        print("加载相关推荐图片失败: \(error)")
+                        return (item.id, URL(string: "about:blank")!)
+                    }
+                }
+            }
+
+            // 收集结果
+            for await (itemId, url) in group {
+                if url.scheme != "about" {
+                    relatedItemImageURLs[itemId] = url
+                }
+            }
+        }
+    }
+
+    /// 获取相关推荐图片 URL
+    func getRelatedItemImageURL(for itemId: String) -> URL? {
+        relatedItemImageURLs[itemId]
     }
 }
 

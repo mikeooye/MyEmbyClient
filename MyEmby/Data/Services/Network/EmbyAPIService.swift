@@ -63,7 +63,7 @@ final class EmbyAPIService {
     /// - Parameter userId: 用户 ID
     /// - Returns: 用户信息
     func getUserInfo(userId: String) async throws -> EmbyUser {
-        var queryItems = await getQueryItems()
+        var queryItems: [URLQueryItem] = []
         queryItems.append(URLQueryItem(name: "info", value: "true"))
 
         let request = try await createRequest(
@@ -112,7 +112,7 @@ final class EmbyAPIService {
         recursive: Bool = true,
         filters: [String]? = nil
     ) async throws -> ItemsResponse {
-        var queryItems = await getQueryItems()
+        var queryItems: [URLQueryItem] = []
 
         // 添加查询参数
         if let parentId = parentId {

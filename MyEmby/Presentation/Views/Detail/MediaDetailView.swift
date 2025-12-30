@@ -34,14 +34,25 @@ struct MediaDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                // 英雄区域
-                heroSection
+            VStack(alignment: .leading, spacing: 24) {
+                // 封面图片区域
+                posterSection
 
-                // 信息区域
-                infoSection
+                // 标题区域
+                titleSection
 
-                // 演员列表（如果有）
+                // 元信息区域（评分、年份、分类）
+                metadataSection
+
+                // 播放按钮
+                playButtonSection
+
+                // 剧情简介
+                if let overview = viewModel.item?.overview, !overview.isEmpty {
+                    overviewSection
+                }
+
+                // 演职人员
                 if viewModel.hasCast {
                     castSection
                 }
@@ -55,19 +66,43 @@ struct MediaDetailView: View {
                 if viewModel.hasRelatedItems {
                     relatedSection
                 }
-
-                // 底部间距
-                Spacer()
-                    .frame(height: 40)
             }
-            .background(Color.white)
+            .padding(.bottom, 40)
         }
-        .overlay(
-            // 返回按钮
-            backButton,
-            alignment: .topLeading
-        )
-        .ignoresSafeArea()
+        .background(Color.white)
+        .ignoresSafeArea(.all, edges: .top)
+        .navigationTitle(viewModel.item?.name ?? "详情")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                HStack(spacing: 12) {
+                    // 收藏按钮
+                    Button(action: {
+                        Task {
+                            await viewModel.toggleFavorite()
+                        }
+                    }) {
+                        Image(systemName: viewModel.item?.isFavorite == true ?
+                             "heart.fill" : "heart")
+                            .font(.system(size: 20))
+                            .foregroundColor(viewModel.item?.isFavorite == true ? .red : .gray)
+                    }
+
+                    // 标记已看按钮
+                    Button(action: {
+                        Task {
+                            await viewModel.togglePlayed()
+                        }
+                    }) {
+                        Image(systemName: viewModel.item?.isPlayed == true ?
+                             "checkmark.circle.fill" : "checkmark.circle")
+                            .font(.system(size: 20))
+                            .foregroundColor((viewModel.item?.isPlayed ?? false) ? .blue : .gray)
+                    }
+                }
+            }
+        }
         .task {
             await viewModel.loadData()
         }
@@ -84,236 +119,134 @@ struct MediaDetailView: View {
 
     // MARK: - 子视图
 
-    /// 英雄区域（背景图 + 海报 + 播放按钮）
-    private var heroSection: some View {
-        ZStack(alignment: .bottom) {
-            // 背景图（模糊）
-            if let backdropURL = viewModel.backdropImageURL {
-                RemoteImageView(
-                    url: backdropURL,
-                    targetSize: CGSize(width: 1920, height: 1080)
-                )
-                .frame(height: heroHeight)
-                .clipped()
-                .blur(radius: 5)
-            } else {
-                Color.gray.opacity(0.3)
-                    .frame(height: heroHeight)
-            }
-
-            // 渐变遮罩
-            LinearGradient(
-                colors: [
-                    Color.black.opacity(0),
-                    Color.black.opacity(0.3),
-                    Color.black.opacity(0.8)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: heroHeight)
-
-            // 海报 + 播放按钮
-            VStack(spacing: 16) {
-                Spacer()
-
-                // 海报
-                if let posterURL = viewModel.posterImageURL {
-                    RemoteImageView(
-                        url: posterURL,
-                        targetSize: CGSize(width: 300, height: 450)
-                    )
-                    .frame(width: 180, height: 270)
-                    .cornerRadius(12)
-                    .shadow(radius: 10)
-                } else {
-                    // 默认海报占位符
-                    ZStack {
-                        Color.gray.opacity(0.3)
-                        Image(systemName: "photo")
-                            .font(.system(size: 60))
-                            .foregroundColor(.gray)
-                    }
-                    .frame(width: 180, height: 270)
-                    .cornerRadius(12)
+    /// 封面图片区域
+    private var posterSection: some View {
+        AsyncImage(url: viewModel.posterImageURL) { phase in
+            switch phase {
+            case .empty:
+                ZStack {
+                    Color.gray.opacity(0.2)
+                    ProgressView()
                 }
-
-                // 播放按钮
-                Button(action: {
-                    // TODO: 跳转到播放器
-                    print("播放媒体")
-                }) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.blue)
-                            .frame(width: 64, height: 64)
-
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(.white)
-                            .offset(x: 2) // 视觉修正
-                    }
-                    .shadow(radius: 8)
+                .frame(maxWidth: .infinity)
+            case .success(let image):
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            case .failure:
+                ZStack {
+                    Color.gray.opacity(0.2)
+                    Image(systemName: "photo")
+                        .font(.system(size: 60))
+                        .foregroundColor(.gray)
                 }
-                .disabled(!viewModel.canPlay)
-                .opacity(viewModel.canPlay ? 1.0 : 0.5)
-
-                // 操作按钮（收藏、标记等）
-                actionButtons
-            }
-            .padding(.bottom, 32)
-        }
-        .frame(height: heroHeight)
-    }
-
-    /// 操作按钮行
-    private var actionButtons: some View {
-        HStack(spacing: 40) {
-            // 收藏按钮
-            Button(action: {
-                Task {
-                    await viewModel.toggleFavorite()
-                }
-            }) {
-                VStack(spacing: 8) {
-                    Image(systemName: viewModel.item?.isFavorite == true ?
-                         "heart.fill" : "heart")
-                        .font(.system(size: 28))
-                        .foregroundColor(viewModel.item?.isFavorite == true ?
-                                         .red : .primary)
-
-                    Text("收藏")
-                        .font(.caption)
-                        .foregroundColor(.primary)
-                }
-            }
-
-            // 标记已看按钮
-            Button(action: {
-                Task {
-                    await viewModel.togglePlayed()
-                }
-            }) {
-                VStack(spacing: 8) {
-                    Image(systemName: viewModel.item?.isPlayed == true ?
-                         "checkmark.circle.fill" : "checkmark.circle")
-                        .font(.system(size: 28))
-                        .foregroundColor(.primary)
-
-                    Text("标记")
-                        .font(.caption)
-                        .foregroundColor(.primary)
-                }
-            }
-
-            // 分享按钮
-            Button(action: {
-                // TODO: 实现分享功能
-                print("分享")
-            }) {
-                VStack(spacing: 8) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 28))
-                        .foregroundColor(.primary)
-
-                    Text("分享")
-                        .font(.caption)
-                        .foregroundColor(.primary)
-                }
+                .frame(maxWidth: .infinity)
+            @unknown default:
+                EmptyView()
             }
         }
+        .frame(maxWidth: .infinity)
+        .background(Color.gray.opacity(0.1))
     }
 
-    /// 信息区域
-    private var infoSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // 标题 + 年份
-            HStack(alignment: .top, spacing: 12) {
-                Text(viewModel.item?.name ?? "")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.black)
+    /// 标题区域
+    private var titleSection: some View {
+        Text(viewModel.item?.name ?? "")
+            .font(.title)
+            .fontWeight(.bold)
+            .foregroundColor(.black)
+            .padding(.horizontal, 20)
+    }
 
-                if let year = viewModel.item?.productionYear {
-                    Text("(\(year))")
-                        .font(.title3)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 4)
+    /// 元信息区域（评分、年份、分类）
+    private var metadataSection: some View {
+        HStack(spacing: 16) {
+            // 评分
+            if let rating = viewModel.formatRating() {
+                HStack(spacing: 4) {
+                    Image(systemName: "star.fill")
+                        .font(.caption)
+                        .foregroundColor(.yellow)
+
+                    Text(rating)
+                        .font(.subheadline)
+                        .foregroundColor(.primary)
                 }
-
-                Spacer()
             }
 
-            // 元信息行（评分、时长）
-            HStack(spacing: 16) {
-                // 评分
-                if let rating = viewModel.formatRating() {
-                    HStack(spacing: 4) {
-                        Image(systemName: "star.fill")
-                            .font(.caption)
-                            .foregroundColor(.yellow)
-
-                        Text(rating)
-                            .font(.subheadline)
-                            .foregroundColor(.primary)
-                    }
-                }
-
-                // 时长
-                if let runtime = viewModel.formatRuntime() {
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Text(runtime)
-                            .font(.subheadline)
-                            .foregroundColor(.primary)
-                    }
-                }
-
-                Spacer()
+            // 年份
+            if let year = viewModel.item?.productionYear {
+                Text(year, format: .number.grouping(.never))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
             }
 
-            // 类型标签
+            // 分类标签
             if let genres = viewModel.item?.genres, !genres.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(genres.prefix(5), id: \.self) { genre in
+                        ForEach(genres.prefix(3), id: \.self) { genre in
                             Text(genre)
                                 .font(.caption)
                                 .foregroundColor(.primary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(Color.gray.opacity(0.2))
-                                .cornerRadius(16)
+                                .background(Color.gray.opacity(0.15))
+                                .cornerRadius(12)
                         }
                     }
                 }
             }
 
-            // 剧情简介
-            if let overview = viewModel.item?.overview, !overview.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("剧情简介")
-                        .font(.headline)
-                        .foregroundColor(.black)
-
-                    Text(overview)
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .lineSpacing(4)
-                }
-            }
+            Spacer()
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 24)
+    }
+
+    /// 播放按钮区域
+    private var playButtonSection: some View {
+        Button(action: {
+            // TODO: 跳转到播放器
+            print("播放媒体")
+        }) {
+            HStack(spacing: 12) {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white)
+
+                Text("立即播放")
+                    .font(.headline)
+                    .foregroundColor(.white)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(Color.blue)
+            .cornerRadius(12)
+        }
+        .disabled(!viewModel.canPlay)
+        .opacity(viewModel.canPlay ? 1.0 : 0.5)
+        .padding(.horizontal, 20)
+    }
+
+    /// 剧情简介区域
+    private var overviewSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("剧情简介")
+                .font(.headline)
+                .foregroundColor(.black)
+
+            Text(viewModel.item?.overview ?? "")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .lineSpacing(4)
+        }
+        .padding(.horizontal, 20)
     }
 
     /// 演员列表
     private var castSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("演员")
+            Text("演职人员")
                 .font(.headline)
                 .foregroundColor(.black)
                 .padding(.horizontal, 20)
@@ -321,7 +254,14 @@ struct MediaDetailView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
                     ForEach(viewModel.cast, id: \.id) { person in
-                        CastCardView(person: person)
+                        if let personId = person.id {
+                            CastCardView(
+                                person: person,
+                                imageURL: viewModel.getCastImageURL(for: personId)
+                            )
+                        } else {
+                            CastCardView(person: person, imageURL: nil)
+                        }
                     }
                 }
                 .padding(.horizontal, 20)
@@ -333,10 +273,34 @@ struct MediaDetailView: View {
     /// 剧集列表
     private var episodesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("剧集")
-                .font(.headline)
-                .foregroundColor(.black)
-                .padding(.horizontal, 20)
+            // 标题栏（包含标题和排序按钮）
+            HStack {
+                Text("剧集")
+                    .font(.headline)
+                    .foregroundColor(.black)
+
+                Spacer()
+
+                // 排序切换按钮
+                Button(action: {
+                    Task {
+                        await viewModel.toggleEpisodeSortOrder()
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: viewModel.isEpisodesAscending ? "arrow.up" : "arrow.down")
+                            .font(.caption)
+                        Text(viewModel.isEpisodesAscending ? "正序" : "倒序")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
+                }
+            }
+            .padding(.horizontal, 20)
 
             // 季选择器（如果有多个季）
             if viewModel.seasons.count > 1 {
@@ -367,22 +331,23 @@ struct MediaDetailView: View {
                 }
             }
 
-            // 剧集列表
-            VStack(spacing: 0) {
-                ForEach(viewModel.episodes, id: \.id) { episode in
-                    EpisodeRowView(episode: episode)
+            // 横向剧集列表
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(viewModel.episodes, id: \.id) { episode in
+                        EpisodeCardView(
+                            episode: episode,
+                            imageURL: viewModel.getEpisodeImageURL(for: episode.id)
+                        )
+                        .containerShape(Rectangle())
                         .onTapGesture {
                             // TODO: 跳转到播放器
                             print("播放剧集: \(episode.name)")
                         }
-
-                    if episode.id != viewModel.episodes.last?.id {
-                        Divider()
-                            .background(Color.gray.opacity(0.3))
                     }
                 }
+                .padding(.horizontal, 20)
             }
-            .padding(.horizontal, 20)
         }
         .padding(.vertical, 16)
     }
@@ -401,7 +366,7 @@ struct MediaDetailView: View {
                         NavigationLink(value: AppRoute.mediaDetail(itemId: item.id)) {
                             MediaCardView(
                                 item: item,
-                                imageURL: nil, // TODO: 传递图片 URL
+                                imageURL: viewModel.getRelatedItemImageURL(for: item.id),
                                 width: 120,
                                 height: 180,
                                 showTitle: true
@@ -415,44 +380,43 @@ struct MediaDetailView: View {
         }
         .padding(.vertical, 16)
     }
-
-    /// 返回按钮
-    private var backButton: some View {
-        Button(action: {
-            NavigationManager.shared.goBack()
-        }) {
-            ZStack {
-                Circle()
-                    .fill(Color.white.opacity(0.9))
-                    .shadow(radius: 2)
-                    .frame(width: 44, height: 44)
-
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.black)
-            }
-            .padding(.leading, 16)
-            .padding(.top, 8)
-        }
-    }
 }
 
 // MARK: - 演员卡片
 
 struct CastCardView: View {
     let person: NamePair
+    let imageURL: URL?
 
     var body: some View {
         VStack(spacing: 8) {
             // 头像
-            ZStack {
-                Circle()
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(width: 80, height: 80)
-
-                Image(systemName: "person.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(.gray)
+            if let imageURL = imageURL {
+                // 使用真实头像
+                AsyncImage(url: imageURL) { phase in
+                    switch phase {
+                    case .empty:
+                        ZStack {
+                            Circle()
+                                .fill(Color.gray.opacity(0.2))
+                            ProgressView()
+                        }
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    case .failure:
+                        fallbackAvatar
+                    @unknown default:
+                        fallbackAvatar
+                    }
+                }
+                .frame(width: 80, height: 80)
+                .clipShape(Circle())
+                .shadow(radius: 2)
+            } else {
+                // 占位符
+                fallbackAvatar
             }
 
             // 姓名
@@ -464,59 +428,116 @@ struct CastCardView: View {
                 .frame(width: 80)
         }
     }
+
+    /// 占位符头像
+    private var fallbackAvatar: some View {
+        ZStack {
+            Circle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 80, height: 80)
+
+            Image(systemName: "person.fill")
+                .font(.system(size: 32))
+                .foregroundColor(.gray)
+        }
+    }
 }
 
-// MARK: - 剧集行
+// MARK: - 剧集卡片
 
-struct EpisodeRowView: View {
+struct EpisodeCardView: View {
     let episode: EmbyItem
+    let imageURL: URL?
 
     var body: some View {
-        HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 6) {
+            // 剧集图片或占位符
+            AsyncImage(url: imageURL) { phase in
+                switch phase {
+                case .empty:
+                    ZStack {
+                        Color.gray.opacity(0.2)
+                        Text("E\(episode.indexNumber ?? 0)")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.gray)
+                    }
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                case .failure:
+                    ZStack {
+                        Color.gray.opacity(0.2)
+                        Text("E\(episode.indexNumber ?? 0)")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.gray)
+                    }
+                @unknown default:
+                    EmptyView()
+                }
+            }
+            .frame(width: 134, height: 75)
+            .background(Color.gray.opacity(0.15))
+            .cornerRadius(8)
+            .clipped()
+            .overlay(
+                // 播放进度条
+                VStack {
+                    Spacer()
+                    if episode.playedPercentage > 0 {
+                        GeometryReader { geometry in
+                            ZStack(alignment: .leading) {
+                                Rectangle()
+                                    .fill(Color.black.opacity(0.5))
+                                    .frame(height: 3)
+
+                                Rectangle()
+                                    .fill(Color.blue)
+                                    .frame(width: geometry.size.width * (episode.playedPercentage / 100), height: 3)
+                            }
+                        }
+                        .frame(height: 3)
+                    }
+                }
+            )
+            .overlay(
+                // 已看标记
+                VStack {
+                    HStack {
+                        Spacer()
+                        if episode.isPlayed {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.green)
+                                .padding(4)
+                        }
+                    }
+                    Spacer()
+                }
+            )
+
             // 剧集编号
-            Text("\(episode.indexNumber ?? 0)")
-                .font(.headline)
+            Text("第 \(episode.indexNumber ?? 0) 集")
+                .font(.caption2)
                 .foregroundColor(.secondary)
-                .frame(width: 40)
 
-            // 剧集信息
-            VStack(alignment: .leading, spacing: 4) {
-                Text(episode.name)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-
-                if let overview = episode.overview {
-                    Text(overview)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                }
-
-                // 播放进度
-                if episode.playedPercentage > 0 {
-                    ProgressView(value: episode.playedPercentage, total: 100)
-                        .progressViewStyle(.linear)
-                        .tint(.blue)
-                }
-            }
-
-            Spacer()
-
-            // 时长
-            if let runtime = episode.runTime {
-                Text("\(Int(runtime / 60))m")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            // 播放图标
-            Image(systemName: "play.circle.fill")
-                .font(.system(size: 32))
-                .foregroundColor(.blue)
+            // 剧集名称
+            Text(episode.name)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+                .lineLimit(2)
         }
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
+        .frame(width: 134)
+        .padding(8)
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.gray.opacity(0.15), lineWidth: 1)
+        )
     }
 }
 

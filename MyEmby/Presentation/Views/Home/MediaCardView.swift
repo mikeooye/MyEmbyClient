@@ -77,25 +77,36 @@ struct MediaCardView: View {
 
     /// 图片部分
     private var imageSection: some View {
-        RemoteImageView(
-            url: imageURL,
-            targetSize: CGSize(width: width, height: height),
-            placeholder: {
+        AsyncImage(url: imageURL) { phase in
+            switch phase {
+            case .empty:
+                // 占位符（加载中）
                 ZStack {
-                    Color.yellow.opacity(0.3)
+                    Color.gray.opacity(0.2)
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle())
                 }
-            },
-            errorView: {
+
+            case .success(let image):
+                // 图片加载成功
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .transition(.opacity)
+
+            case .failure:
+                // 加载失败
                 ZStack {
-                    Color.yellow.opacity(0.3)
+                    Color.gray.opacity(0.3)
                     Image(systemName: "photo")
                         .font(.system(size: 30))
                         .foregroundColor(.gray)
                 }
+
+            @unknown default:
+                EmptyView()
             }
-        )
+        }
         .frame(width: width, height: height)
         .cornerRadius(8)
         .shadow(radius: 4)
@@ -122,7 +133,7 @@ struct MediaCardView: View {
 
             // 显示年份或集数
             if let year = item.productionYear {
-                Text("\(year)")
+                Text(year, format: .number.grouping(.never))
                     .font(.caption2)
                     .foregroundColor(.secondary)
             } else if let episodeNumber = item.indexNumber {

@@ -329,6 +329,26 @@ struct NamePair: Codable, Equatable {
         case id = "Id"
         case primaryImageTag = "PrimaryImageTag"
     }
+
+    // 自定义解码以处理 Id 字段可能是数字或字符串的情况
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // 解码 name
+        self.name = try? container.decode(String.self, forKey: .name)
+
+        // 解码 primaryImageTag
+        self.primaryImageTag = try? container.decode(String.self, forKey: .primaryImageTag)
+
+        // 解码 id（可能是字符串或数字）
+        if let idString = try? container.decode(String.self, forKey: .id) {
+            self.id = idString
+        } else if let idInt = try? container.decode(Int.self, forKey: .id) {
+            self.id = String(idInt)
+        } else {
+            self.id = nil
+        }
+    }
 }
 
 /// 图片标签集合
