@@ -68,9 +68,7 @@ struct MediaCardView: View {
             }
         }
         .frame(width: width)
-        .onTapGesture {
-            onTap?()
-        }
+        .modifier(TapGestureModifier(onTap: onTap))
     }
 
     // MARK: - 子视图
@@ -187,6 +185,23 @@ struct MediaCardView: View {
                     )
                     .padding(4)
             }
+        }
+    }
+}
+
+// MARK: - 点击手势修饰符
+
+/// 条件性添加点击手势的修饰符
+private struct TapGestureModifier: ViewModifier {
+    let onTap: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if let onTap = onTap {
+            content.onTapGesture {
+                onTap()
+            }
+        } else {
+            content
         }
     }
 }

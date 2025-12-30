@@ -27,7 +27,7 @@ struct MediaRowView: View {
     var onSeeAll: (() -> Void)?
 
     /// 点击媒体项回调
-    var onItemClick: (EmbyItem) -> Void
+    var onItemClick: ((EmbyItem) -> Void)?
 
     /// 加载状态
     @State private var isLoading = false
@@ -41,14 +41,14 @@ struct MediaRowView: View {
     ///   - viewModel: 首页视图模型
     ///   - showSeeAllButton: 是否显示"查看全部"按钮
     ///   - onSeeAll: 查看全部回调
-    ///   - onItemClick: 点击媒体项回调
+    ///   - onItemClick: 点击媒体项回调（可选，如果不提供则使用 NavigationLink）
     init(
         title: String,
         items: [EmbyItem],
         viewModel: HomeViewModel,
         showSeeAllButton: Bool = true,
         onSeeAll: (() -> Void)? = nil,
-        onItemClick: @escaping (EmbyItem) -> Void
+        onItemClick: ((EmbyItem) -> Void)? = nil
     ) {
         self.title = title
         self.items = items
@@ -148,27 +148,41 @@ private struct AsyncMediaCard: View {
     /// 首页视图模型（用于获取图片 URL）
     @State var viewModel: HomeViewModel
 
-    /// 点击回调
-    let onItemClick: (EmbyItem) -> Void
+    /// 点击回调（可选，如果不提供则使用 NavigationLink）
+    let onItemClick: ((EmbyItem) -> Void)?
 
     /// 图片 URL
     @State private var imageURL: URL?
 
     var body: some View {
-        MediaCardView(
-            item: item,
-            imageURL: imageURL,
-            onTap: {
-                onItemClick(item)
+        Group {
+            if let onItemClick = onItemClick {
+                // 使用点击回调方式
+                MediaCardView(
+                    item: item,
+                    imageURL: imageURL,
+                    onTap: {
+                        onItemClick(item)
+                    }
+                )
+            } else {
+                // 使用 NavigationLink 方式
+                NavigationLink(value: AppRoute.mediaDetail(itemId: item.id)) {
+                    MediaCardView(
+                        item: item,
+                        imageURL: imageURL,
+                        onTap: nil  // 不使用 onTap，让 NavigationLink 处理
+                    )
+                }
+                .buttonStyle(.plain)
             }
-        )
+        }
         .task(id: item.id) {
-            // ⚡️ 直接调用 viewModel 的方法，避免闭包传递问题
+            // 加载图片
             do {
                 imageURL = try await viewModel.getImageURL(for: item.id)
-                print("✅ [AsyncMediaCard] 成功加载图片: \(item.name)")
             } catch {
-                print("❌ [AsyncMediaCard] 加载图片失败: \(error)")
+                // 加载失败，静默处理
             }
         }
     }
@@ -283,9 +297,7 @@ private struct AsyncMediaCard: View {
                 )
             ],
             viewModel: HomeViewModel.preview,
-            onItemClick: { item in
-                print("点击了: \(item.name)")
-            }
+            onItemClick: { _ in }
         )
 
         // 示例 2: 电视剧列表
@@ -327,9 +339,7 @@ private struct AsyncMediaCard: View {
                 )
             ],
             viewModel: HomeViewModel.preview,
-            onItemClick: { item in
-                print("点击了: \(item.name)")
-            }
+            onItemClick: { _ in }
         )
 
         // 示例 3: 空列表

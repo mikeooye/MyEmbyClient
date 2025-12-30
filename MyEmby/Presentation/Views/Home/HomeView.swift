@@ -12,39 +12,37 @@ struct HomeView: View {
     // MARK: - 属性
 
     /// 视图模型
-    @State private var viewModel = HomeViewModel()
+    @State private var viewModel: HomeViewModel
 
     /// 显示的分类列表（缓存，避免重复计算）
     @State private var displayedCategories: [EmbyItem] = []
 
-    /// 导航管理器
-    @State private var navigationManager = NavigationManager.shared
+    // MARK: - 初始化
+
+    /// 创建首页视图
+    /// - Parameter viewModel: 视图模型
+    init(viewModel: HomeViewModel) {
+        self._viewModel = State(initialValue: viewModel)
+    }
 
     // MARK: - 视图主体
 
     var body: some View {
-        NavigationStack(path: $navigationManager.path) {
-            ZStack {
-                // 背景色
-//                Color.black.ignoresSafeArea()
+        ZStack {
+            // 背景色
+//            Color.black.ignoresSafeArea()
 
-                // 主内容
-                contentView
-            }
-            .navigationDestination(for: AppRoute.self) { route in
-                destinationView(for: route)
-            }
-            .navigationTitle("首页")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    userAvatarButton
-                }
-            }
+            // 主内容
+            contentView
         }
+        .navigationTitle("首页")
+        .navigationBarTitleDisplayMode(.large)
         .onAppear {
-            // 视图出现时加载数据
-            onAppear()
+            // 只在首次加载时获取数据
+            Task {
+                await viewModel.loadDataIfNeeded()
+                updateDisplayedCategories()
+            }
         }
         .onChange(of: viewModel.libraryViews) { _, _ in
             // 当分类列表更新时，更新缓存的显示列表
@@ -92,22 +90,14 @@ struct HomeView: View {
     private func categorySection(for category: EmbyItem) -> some View {
         let items = viewModel.latestItems(for: category.id)
 
-        // ⚡️ 直接传递 viewModel，避免闭包传递问题
+        // 不提供 onItemClick，让 MediaRowView 使用 NavigationLink
         return MediaRowView(
             title: category.name,
             items: items,
             viewModel: viewModel,
             showSeeAllButton: true,
             onSeeAll: {
-                // 跳转到分类详情页
-                NavigationManager.shared.push(.category(
-                    categoryId: category.id,
-                    categoryName: category.name
-                ))
-            },
-            onItemClick: { item in
-                // 跳转到媒体详情页
-                NavigationManager.shared.push(.mediaDetail(itemId: item.id))
+                // TODO: 实现分类详情页导航
             }
         )
     }
@@ -188,75 +178,25 @@ struct HomeView: View {
             }
         }
     }
-
-    /// 用户头像按钮
-    private var userAvatarButton: some View {
-        Button(action: {
-            // TODO: 显示用户设置菜单
-            print("显示用户菜单")
-        }) {
-            Image(systemName: "person.circle.fill")
-                .font(.system(size: 32))
-                .foregroundColor(.blue)
-        }
-    }
 }
 
 // MARK: - 初始化和加载
 
 extension HomeView {
-    /// 视图出现时加载数据
-    func onAppear() {
-        Task {
-            await viewModel.loadData()
-            // 数据加载完成后，更新缓存的显示列表
-            updateDisplayedCategories()
-        }
-    }
-
     /// 更新显示的分类列表（缓存，避免重复计算）
     private func updateDisplayedCategories() {
         displayedCategories = viewModel.displayedCategories
     }
 }
 
-// MARK: - 导航处理
-
-extension HomeView {
-    /// 根据路由返回目标视图
-    @ViewBuilder
-    private func destinationView(for route: AppRoute) -> some View {
-        switch route {
-        case .mediaDetail(let itemId):
-            MediaDetailView(itemId: itemId)
-        case .category(let categoryId, let categoryName):
-            // TODO: 创建分类详情页
-            Text("分类详情页: \(categoryName)")
-                .navigationTitle(categoryName)
-        case .player(let itemId):
-            // TODO: 创建播放器页面
-            Text("播放器: \(itemId)")
-        case .settings:
-            // TODO: 创建设置页面
-            Text("设置")
-        }
-    }
-}
-
 // MARK: - 预览
 
 #Preview {
-    HomeView()
+    HomeView(viewModel: HomeViewModel())
         .preferredColorScheme(.dark)
 }
 
 #Preview("模拟数据") {
-    HomeView()
-        .environment(\.colorScheme, .dark)
-        .onAppear {
-            // 使用预览数据
-            let viewModel = HomeViewModel.preview
-            // TODO: 注入预览数据到视图
-            _ = viewModel
-        }
+    HomeView(viewModel: HomeViewModel.preview)
+        .preferredColorScheme(.dark)
 }

@@ -33,6 +33,9 @@ final class HomeViewModel {
     /// 刷新任务 ID（用于 Pull-to-Refresh）
     var refreshTask: Task<Void, Never>?
 
+    /// 是否已经加载过数据
+    private(set) var hasLoadedOnce = false
+
     // MARK: - 依赖
 
     private let authRepository: AuthRepository
@@ -56,6 +59,14 @@ final class HomeViewModel {
         }
 
         await refreshTask?.value
+    }
+
+    /// 仅在首次加载时获取数据（用于 TabView 保持状态）
+    func loadDataIfNeeded() async {
+        if !hasLoadedOnce {
+            hasLoadedOnce = true
+            await loadData()
+        }
     }
 
     /// 刷新数据
@@ -145,20 +156,17 @@ final class HomeViewModel {
 
             // 如果是认证错误，清除过期的认证信息
             if case .unauthorized = error {
-                print("认证失败，清除过期信息")
                 Task {
                     try? await authRepository.logout()
                 }
                 errorMessage = "登录已过期，请重新登录"
             } else {
                 errorMessage = error.alertMessage
-                print("获取首页数据失败: \(error)")
             }
 
         } catch {
             isLoading = false
             errorMessage = error.localizedDescription
-            print("获取首页数据失败: \(error)")
         }
     }
 
@@ -193,7 +201,6 @@ final class HomeViewModel {
             return (category.id, items)
 
         } catch {
-            print("获取分类 \(category.name) 的最新内容失败: \(error)")
             return (category.id, [])
         }
     }
