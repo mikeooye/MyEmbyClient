@@ -19,13 +19,13 @@ extension Notification.Name {
 /// - 处理登录和登出流程
 /// - 管理服务器配置和会话信息
 /// - 为 ViewModel 提供简洁的数据访问接口
+@MainActor
 final class AuthRepository {
 
     // MARK: - 属性
 
     private let apiService: EmbyAPIService
     private let tokenManager: TokenManager
-    private let keychain: KeychainManager
 
     /// Keychain 存储键
     private enum Key {
@@ -37,19 +37,9 @@ final class AuthRepository {
     init(
         apiService: EmbyAPIService,
         tokenManager: TokenManager,
-        keychain: KeychainManager
     ) {
         self.apiService = apiService
         self.tokenManager = tokenManager
-        self.keychain = keychain
-    }
-
-    /// 便捷初始化（使用新的 KeychainManager 实例）
-    convenience init(
-        apiService: EmbyAPIService,
-        tokenManager: TokenManager
-    ) {
-        self.init(apiService: apiService, tokenManager: tokenManager, keychain: KeychainManager())
     }
 
     // MARK: - 公共方法
@@ -78,7 +68,7 @@ final class AuthRepository {
         )
 
         // 创建新的 TokenManager 用于登录（避免使用旧的 token）
-        let newTokenManager = TokenManager.create()
+        let newTokenManager = TokenManager()
 
         // 创建 API 服务实例（使用新配置）
         let apiService = EmbyAPIService.create(config: config, tokenManager: newTokenManager)
@@ -90,10 +80,10 @@ final class AuthRepository {
         )
 
         // 保存服务器配置
-        try await keychain.save(config, for: Key.serverConfig)
+        try await KeychainManager.shared.save(config, for: Key.serverConfig)
 
         // 保存会话信息（使用新的 TokenManager）
-        try await newTokenManager.saveSessionInfo(response.sessionInfo)
+        try await newTokenManager.saveSessionInfo(await response.getSessionInfo())
 
         return response
     }
@@ -104,7 +94,7 @@ final class AuthRepository {
         try await tokenManager.clearSession()
 
         // 清除服务器配置
-        try await keychain.delete(for: Key.serverConfig)
+        try await KeychainManager.shared.delete(for: Key.serverConfig)
     }
 
     /// 处理认证失效（当 Token 过期时调用）
@@ -138,7 +128,7 @@ final class AuthRepository {
     /// 获取保存的服务器配置
     /// - Returns: 服务器配置
     func getServerConfig() async throws -> ServerConfig {
-        return try await keychain.get(for: Key.serverConfig, as: ServerConfig.self)
+        return try await KeychainManager.shared.get(for: Key.serverConfig, as: ServerConfig.self)
     }
 
     /// 获取 API 服务实例（使用保存的配置）
@@ -172,7 +162,7 @@ final class AuthRepository {
 extension AuthRepository {
     /// 使用服务器配置创建实例
     static func create(config: ServerConfig) -> AuthRepository {
-        let tokenManager = TokenManager.create()
+        let tokenManager = TokenManager()
         let apiService = EmbyAPIService.create(config: config, tokenManager: tokenManager)
         return AuthRepository(apiService: apiService, tokenManager: tokenManager)
     }
@@ -180,8 +170,9 @@ extension AuthRepository {
     /// 共享实例（单例）
     ///
     /// 注意：首次使用时需要配置，否则 API 服务将使用空 baseURL
+    @MainActor
     static let shared: AuthRepository = {
-        let tokenManager = TokenManager.create()
+        let tokenManager = TokenManager()
         let apiService = EmbyAPIService(baseURL: "", tokenManager: tokenManager)
         return AuthRepository(apiService: apiService, tokenManager: tokenManager)
     }()

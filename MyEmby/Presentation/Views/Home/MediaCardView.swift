@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SDWebImageSwiftUI
 
 /// 媒体卡片视图（显示单个媒体项的封面和信息）
 struct MediaCardView: View {
@@ -75,7 +76,7 @@ struct MediaCardView: View {
 
     /// 图片部分
     private var imageSection: some View {
-        AsyncImage(url: imageURL) { phase in
+        WebImage(url: imageURL) { phase in
             switch phase {
             case .empty:
                 // 占位符（加载中）

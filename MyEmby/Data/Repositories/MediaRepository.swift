@@ -171,7 +171,7 @@ extension MediaRepository {
     ///
     /// 注意：首次使用时需要配置，否则 API 服务将使用空 baseURL
     static let shared: MediaRepository = {
-        let apiService = EmbyAPIService(baseURL: "", tokenManager: TokenManager.create())
+        let apiService = EmbyAPIService(baseURL: "", tokenManager: TokenManager.shared)
         let authRepository = AuthRepository.shared
         return MediaRepository(apiService: apiService, authRepository: authRepository)
     }()

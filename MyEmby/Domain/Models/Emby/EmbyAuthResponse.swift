@@ -22,37 +22,29 @@ struct EmbyAuthResponse: Codable, Equatable {
     }
 
     /// 计算属性：会话信息
-    var sessionInfo: SessionInfo {
-        SessionInfo(
+    func getSessionInfo() async -> SessionInfo {
+        let deviceId = await DeviceManager.shared.getOrCreateDeviceId()
+        return SessionInfo(
             accessToken: accessToken,
             serverId: serverId,
             userId: user.id,
-            username: user.name
+            username: user.name,
+            deviceId: deviceId
         )
     }
 }
 
 /// 会话信息（用于简化使用）
-struct SessionInfo: Codable, Equatable {
+struct SessionInfo: Codable, Equatable, Sendable {
     let accessToken: String
     let serverId: String
     let userId: String
     let username: String
+    let deviceId: String
 
     /// 认证头（Bearer Token）
     var authHeader: String {
         "MediaBrowser Client=\"MyEmby\", Device=\"iOS\", DeviceId=\"\(deviceId)\", Token=\"\(accessToken)\""
-    }
-
-    /// 生成设备 ID（基于设备唯一标识）
-    private var deviceId: String {
-        // TODO: 从 UserDefaults 或 Keychain 获取持久化设备 ID
-        // 临时使用 UIDevice.current.identifierForVendor
-        #if os(iOS)
-        return UIDevice.current.identifierForVendor?.uuidString ?? "unknown-device"
-        #else
-        return "ios-device"
-        #endif
     }
 
     /// URL 查询参数

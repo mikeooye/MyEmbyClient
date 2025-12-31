@@ -167,6 +167,21 @@ final class EmbyAPIService {
 
         return try await performRequest(request)
     }
+    
+    /// 获取媒体播放信息
+    ///   - Parameters:
+    ///     - userId: 用户ID
+    ///     - itemId： 媒体项ID
+    func getItemsByIdPlaybackInfo(userId: String, itemId: String) async throws -> PlaybackInfo {
+        let request = try await createRequest(
+            for: APIEndpoint.getPlaybackInfo(itemId: itemId),
+            queryItems: [
+                URLQueryItem(name: "UserId", value: userId)
+            ],
+            requiresAuth: true
+        )
+        return try await performRequest(request)
+    }
 
     /// 获取最新添加的媒体项
     /// - Parameters:
@@ -200,6 +215,27 @@ final class EmbyAPIService {
         )
 
         return try await performRequest(request)
+    }
+    
+    // MARK: - 视频相关
+    
+    /// 获取播放地址
+    func getPlaybackURL(for itemId: String) async throws -> URL {
+        // 构建播放 URL
+        // Emby 播放端点格式: /Videos/{itemId}/stream?Static=true&api_key={apiKey}
+        // MKV 无法播放，需要转换
+        var components = URLComponents(string: "\(baseURL)/Videos/\(itemId)/stream")!
+        let apiKey = await getAPIKey()
+        components.queryItems = [
+            URLQueryItem(name: "Static", value: "true"),
+            URLQueryItem(name: "api_key", value: apiKey)
+        ]
+        
+        guard let url = components.url else {
+            throw NetworkError.invalidURL
+        }
+        
+        return url
     }
 
     // MARK: - 图片相关

@@ -31,7 +31,7 @@ enum APIEndpoint {
     case removeFavoriteItem(userId: String, itemId: String)
 
     // MARK: - 播放相关
-    case getPlaybackInfo(userId: String, itemId: String)
+    case getPlaybackInfo(itemId: String)
 
     // MARK: - 图片
     case getImage(itemId: String, imageType: ImageType, maxWidth: Int?, maxHeight: Int?)
@@ -81,8 +81,8 @@ enum APIEndpoint {
             return "/Users/\(userId)/FavoriteItems/\(itemId)"
 
         // 播放
-        case .getPlaybackInfo(let userId, let itemId):
-            return "/Users/\(userId)/Items/\(itemId)/PlaybackInfo"
+        case .getPlaybackInfo(let itemId):
+            return "/Items/\(itemId)/PlaybackInfo"
 
         // 图片
         case .getImage(let itemId, let imageType, _, _):

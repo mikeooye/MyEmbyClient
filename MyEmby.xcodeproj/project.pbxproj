@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		28A8C51A2F04FFFB005F7FC3 /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 28A8C5192F04FFFB005F7FC3 /* SDWebImageSwiftUI */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		28B583CA2F02110400657ED7 /* MyEmby.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyEmby.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				28A8C51A2F04FFFB005F7FC3 /* SDWebImageSwiftUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = MyEmby;
 			packageProductDependencies = (
+				28A8C5192F04FFFB005F7FC3 /* SDWebImageSwiftUI */,
 			);
 			productName = MyEmby;
 			productReference = 28B583CA2F02110400657ED7 /* MyEmby.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = 28B583C12F02110400657ED7;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				28A8C5182F04FFFB005F7FC3 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 28B583CB2F02110400657ED7 /* Products */;
 			projectDirPath = "";
@@ -338,6 +347,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		28A8C5182F04FFFB005F7FC3 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SDWebImage/SDWebImageSwiftUI.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.1.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		28A8C5192F04FFFB005F7FC3 /* SDWebImageSwiftUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 28A8C5182F04FFFB005F7FC3 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */;
+			productName = SDWebImageSwiftUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 28B583C22F02110400657ED7 /* Project object */;
 }

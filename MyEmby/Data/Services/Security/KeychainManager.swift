@@ -43,6 +43,8 @@ enum KeychainError: Error, LocalizedError {
 /// - 线程安全
 /// - 自动处理错误
 actor KeychainManager {
+    
+    static let shared = KeychainManager()
 
     // MARK: - 配置
 
@@ -54,7 +56,7 @@ actor KeychainManager {
 
     // MARK: - 初始化
 
-    init(service: String? = nil, accessGroup: String? = nil) {
+    private init(service: String? = nil, accessGroup: String? = nil) {
         // 默认使用 Bundle ID 作为服务标识符
         self.service = service ?? Bundle.main.bundleIdentifier ?? "com.myemby.app"
         self.accessGroup = accessGroup

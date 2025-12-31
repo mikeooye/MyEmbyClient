@@ -14,10 +14,9 @@ import Foundation
 /// - 存储和检索会话信息
 /// - 提供 Token 有效性检查
 actor TokenManager {
-
+    
+    static let shared = TokenManager()
     // MARK: - 属性
-
-    private let keychain: KeychainManager
 
     /// Keychain 存储键
     private enum Key {
@@ -26,31 +25,23 @@ actor TokenManager {
         static let userId = "emby.user_id"
         static let username = "emby.username"
         static let sessionInfo = "emby.session_info"
+        static let deviceId = "emby.device_id"
     }
 
     // MARK: - 初始化
-
-    init(keychain: KeychainManager) {
-        self.keychain = keychain
-    }
-
-    /// 便捷初始化（使用新的 KeychainManager 实例）
-    static func create() -> TokenManager {
-        TokenManager(keychain: KeychainManager())
-    }
 
     // MARK: - 公共方法
 
     /// 保存会话信息
     /// - Parameter sessionInfo: 会话信息
     func saveSessionInfo(_ sessionInfo: SessionInfo) async throws {
-        try await keychain.save(sessionInfo, for: Key.sessionInfo)
+        try await KeychainManager.shared.save(sessionInfo, for: Key.sessionInfo)
     }
 
     /// 获取会话信息
     /// - Returns: 会话信息，如果不存在则返回 nil
     func getSessionInfo() async throws -> SessionInfo {
-        try await keychain.get(for: Key.sessionInfo, as: SessionInfo.self)
+        try await KeychainManager.shared.get(for: Key.sessionInfo, as: SessionInfo.self)
     }
 
     /// 检查是否已登录
@@ -90,7 +81,7 @@ actor TokenManager {
 
     /// 清除所有会话信息（登出）
     func clearSession() async throws {
-        try await keychain.delete(for: Key.sessionInfo)
+        try await KeychainManager.shared.delete(for: Key.sessionInfo)
     }
 
     // MARK: - 便捷方法
