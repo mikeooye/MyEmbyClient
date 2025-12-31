@@ -21,8 +21,8 @@ struct AppRootBuilder: View {
     var body: some View {
         Group {
             if authViewModel.isAuthenticated {
-                // 显示首页
-                HomeView()
+                // 显示主界面（TabBar）
+                MainTabView()
             } else {
                 // 登录页面（共享同一个 authViewModel）
                 LoginView(viewModel: authViewModel)

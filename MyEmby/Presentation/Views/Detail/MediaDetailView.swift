@@ -207,7 +207,6 @@ struct MediaDetailView: View {
     private var playButtonSection: some View {
         Button(action: {
             // TODO: 跳转到播放器
-            print("播放媒体")
         }) {
             HStack(spacing: 12) {
                 Image(systemName: "play.fill")
@@ -342,7 +341,6 @@ struct MediaDetailView: View {
                         .containerShape(Rectangle())
                         .onTapGesture {
                             // TODO: 跳转到播放器
-                            print("播放剧集: \(episode.name)")
                         }
                     }
                 }
