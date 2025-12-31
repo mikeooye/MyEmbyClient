@@ -137,7 +137,6 @@ struct RemoteImageView: View {
         } catch {
             isLoading = false
             hasError = true
-            print("图片加载失败: \(error)")
         }
     }
 }

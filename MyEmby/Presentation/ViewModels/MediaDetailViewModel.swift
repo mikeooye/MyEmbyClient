@@ -145,7 +145,6 @@ final class MediaDetailViewModel {
         } catch {
             isLoading = false
             errorMessage = error.localizedDescription
-            print("加载详情失败: \(error)")
         }
     }
 
@@ -154,14 +153,12 @@ final class MediaDetailViewModel {
         guard let item = item else { return }
 
         // TODO: 实现收藏功能（需要在 EmbyAPIService 中添加 addFavoriteItem 和 removeFavoriteItem 方法）
-        print("切换收藏状态: \(item.name) - 当前状态: \(item.isFavorite)")
         errorMessage = "收藏功能待实现"
     }
 
     /// 标记为已播放/未播放
     func togglePlayed() async {
         // TODO: 实现 markAsPlayed API（需要在 EmbyAPIService 中添加）
-        print("标记播放状态（待实现）")
     }
 
     /// 获取演员头像 URL
@@ -187,7 +184,7 @@ final class MediaDetailViewModel {
             await loadEpisodeImages(episodes: response.items, mediaRepository: mediaRepository)
 
         } catch {
-            print("加载剧集失败: \(error)")
+            // 加载失败，静默处理
         }
     }
 
@@ -274,7 +271,7 @@ final class MediaDetailViewModel {
                             return (personId, url)
                         }
                     } catch {
-                        print("加载演员头像失败: \(error)")
+                        // 加载失败，静默处理
                     }
                     return (personId, URL(string: "about:blank")!)
                 }
@@ -307,7 +304,7 @@ final class MediaDetailViewModel {
             }
 
         } catch {
-            print("加载季列表失败: \(error)")
+            // 加载失败，静默处理
         }
     }
 
@@ -346,7 +343,7 @@ final class MediaDetailViewModel {
             await loadRelatedItemImages(items: self.relatedItems, mediaRepository: mediaRepository)
 
         } catch {
-            print("加载相关推荐失败: \(error)")
+            // 加载失败，静默处理
         }
     }
 
@@ -370,7 +367,6 @@ final class MediaDetailViewModel {
                         )
                         return (item.id, url)
                     } catch {
-                        print("加载相关推荐图片失败: \(error)")
                         return (item.id, URL(string: "about:blank")!)
                     }
                 }

@@ -91,7 +91,7 @@ final class AuthViewModel {
             // 重置表单
             loginForm = LoginForm()
         } catch {
-            print("登出失败: \(error)")
+            // 登出失败，静默处理
         }
     }
 

@@ -118,10 +118,8 @@ final class AuthRepository {
                 name: .authenticationInvalidated,
                 object: nil
             )
-
-            print("认证已失效，已清除登录信息")
         } catch {
-            print("清除登录信息失败: \(error)")
+            // 清除失败，静默处理
         }
     }
 

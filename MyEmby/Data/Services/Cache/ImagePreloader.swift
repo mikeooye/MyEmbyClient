@@ -81,7 +81,6 @@ actor ImagePreloader {
                     }
                 } catch {
                     // 静默失败，不影响主流程
-                    print("预加载图片失败: \(error)")
                 }
             }
 

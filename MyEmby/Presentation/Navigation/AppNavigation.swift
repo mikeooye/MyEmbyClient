@@ -42,7 +42,6 @@ final class NavigationManager {
     func push(_ route: AppRoute) {
         pageStack.append(route)
         path.append(route)
-        print("📱 导航: \(route)")
     }
 
     /// 返回上一页
@@ -50,7 +49,6 @@ final class NavigationManager {
         if !pageStack.isEmpty {
             pageStack.removeLast()
             path.removeLast()
-            print("⬅️ 返回: 剩余 \(pageStack.count) 页")
         }
     }
 
@@ -58,7 +56,6 @@ final class NavigationManager {
     func goToRoot() {
         pageStack.removeAll()
         path.removeLast(path.count)
-        print("🏠 返回根页面")
     }
 
     /// 当前页面数量
