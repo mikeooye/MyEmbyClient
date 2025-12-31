@@ -230,7 +230,7 @@ struct MediaDetailView: View {
         .opacity(viewModel.canPlay ? 1.0 : 0.5)
         .padding(.horizontal, 20)
         .fullScreenCover(isPresented: $isPlaying) {
-            VideoPlayerView(itemId: itemId, viewModel: PlayerViewModel())
+            VideoPlayerView(itemId: itemId)
         }
     }
     

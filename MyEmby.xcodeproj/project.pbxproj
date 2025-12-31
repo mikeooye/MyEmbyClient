@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		28A8C51A2F04FFFB005F7FC3 /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 28A8C5192F04FFFB005F7FC3 /* SDWebImageSwiftUI */; };
+		28A8C96B2F0526E5005F7FC3 /* LibMPV in Frameworks */ = {isa = PBXBuildFile; productRef = 28A8C96A2F0526E5005F7FC3 /* LibMPV */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				28A8C51A2F04FFFB005F7FC3 /* SDWebImageSwiftUI in Frameworks */,
+				28A8C96B2F0526E5005F7FC3 /* LibMPV in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,6 +73,7 @@
 			name = MyEmby;
 			packageProductDependencies = (
 				28A8C5192F04FFFB005F7FC3 /* SDWebImageSwiftUI */,
+				28A8C96A2F0526E5005F7FC3 /* LibMPV */,
 			);
 			productName = MyEmby;
 			productReference = 28B583CA2F02110400657ED7 /* MyEmby.app */;
@@ -102,6 +105,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				28A8C5182F04FFFB005F7FC3 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
+				28A8C9682F05260F005F7FC3 /* XCRemoteSwiftPackageReference "MPVKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 28B583CB2F02110400657ED7 /* Products */;
@@ -357,6 +361,14 @@
 				minimumVersion = 3.1.4;
 			};
 		};
+		28A8C9682F05260F005F7FC3 /* XCRemoteSwiftPackageReference "MPVKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/karelrooted/MPVKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -364,6 +376,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 28A8C5182F04FFFB005F7FC3 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */;
 			productName = SDWebImageSwiftUI;
+		};
+		28A8C96A2F0526E5005F7FC3 /* LibMPV */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 28A8C9682F05260F005F7FC3 /* XCRemoteSwiftPackageReference "MPVKit" */;
+			productName = LibMPV;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

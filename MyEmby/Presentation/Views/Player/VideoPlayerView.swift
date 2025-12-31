@@ -2,23 +2,112 @@
 //  VideoPlayerView.swift
 //  MyEmby
 //
-//  Created by Claude on 2025/12/30.
+//  基于 MPVKit 的视频播放器视图
 //
 
 import SwiftUI
-import AVKit
+import Combine
+import LibMPV
+
+/// MPV 金属播放器视图 (SwiftUI 包装)
+struct MPVMetalPlayerView: UIViewControllerRepresentable {
+    /// 播放器引用观察器
+    @ObservedObject var playerObserver: PlayerObserver
+
+    /// 播放器时间变化回调
+    var onTimeChange: ((Double) -> Void)?
+
+    /// 播放器时长变化回调
+    var onDurationChange: ((Double) -> Void)?
+
+    /// 播放器播放状态变化回调
+    var onPlayingChange: ((Bool) -> Void)?
+
+    func makeUIViewController(context: Context) -> MPVMetalViewController {
+        let mpvVC = MPVMetalViewController()
+        mpvVC.playDelegate = context.coordinator
+
+        // 保存播放器引用
+        Task { @MainActor in
+            playerObserver.player = mpvVC
+        }
+
+        return mpvVC
+    }
+
+    func updateUIViewController(_ uiViewController: MPVMetalViewController, context: Context) {
+        // 无需更新
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(
+            onTimeChange: onTimeChange,
+            onDurationChange: onDurationChange,
+            onPlayingChange: onPlayingChange
+        )
+    }
+
+    /// 播放器协调器
+    final class Coordinator: NSObject, MPVPlayerDelegate {
+        var onTimeChange: ((Double) -> Void)?
+        var onDurationChange: ((Double) -> Void)?
+        var onPlayingChange: ((Bool) -> Void)?
+
+        init(
+            onTimeChange: ((Double) -> Void)?,
+            onDurationChange: ((Double) -> Void)?,
+            onPlayingChange: ((Bool) -> Void)?
+        ) {
+            self.onTimeChange = onTimeChange
+            self.onDurationChange = onDurationChange
+            self.onPlayingChange = onPlayingChange
+        }
+
+        nonisolated func propertyChange(mpv: OpaquePointer, propertyName: String, data: Any?) {
+            switch propertyName {
+            case "time-pos":
+                if let time = data as? Double {
+                    Task { @MainActor in
+                        onTimeChange?(time)
+                    }
+                }
+            case "duration":
+                if let duration = data as? Double {
+                    Task { @MainActor in
+                        onDurationChange?(duration)
+                    }
+                }
+            case "pause":
+                if let paused = data as? Bool {
+                    Task { @MainActor in
+                        onPlayingChange?(!paused)
+                    }
+                }
+            default:
+                break
+            }
+        }
+    }
+}
+
+/// 播放器观察器 (用于保存播放器引用)
+final class PlayerObserver: ObservableObject {
+     weak var player: MPVMetalViewController?
+}
+
+// MARK: - 视频播放器视图
 
 /// 视频播放器视图
 struct VideoPlayerView: View {
-    @Environment(\.dismiss) var dismiss // 获取系统关闭动作
-    
-    // MARK: - 属性
+    @Environment(\.dismiss) private var dismiss
 
-    /// 视图模型
-    @State private var viewModel: PlayerViewModel
+    // MARK: - 属性
 
     /// 媒体项 ID
     let itemId: String
+
+    /// 播放器观察器
+    @StateObject private var playerObserver = PlayerObserver()
 
     /// 是否显示控制栏
     @State private var showControls = true
@@ -26,67 +115,107 @@ struct VideoPlayerView: View {
     /// 控制栏自动隐藏定时器
     @State private var controlsHideTimer: Timer?
 
+    /// 播放状态
+    @State private var isPlaying = false
+
+    /// 当前播放时间
+    @State private var currentTime: TimeInterval = 0
+
+    /// 总时长
+    @State private var totalDuration: TimeInterval = 0
+
+    /// 是否加载中
+    @State private var isLoading = true
+
+    /// 错误信息
+    @State private var errorMessage: String?
+
     // MARK: - 初始化
 
-    /// 创建播放器视图
-    /// - Parameters:
-    ///   - itemId: 媒体项 ID
-    ///   - viewModel: 播放器视图模型
-    @MainActor
-    init(itemId: String, viewModel: PlayerViewModel) {
+    init(itemId: String) {
         self.itemId = itemId
-        self._viewModel = State(initialValue: viewModel)
     }
 
     // MARK: - 视图主体
 
     var body: some View {
         ZStack {
-            if let player = viewModel.player {
-                // 视频播放器
-                VideoPlayer(player: player)
-                    .onAppear {
-                        // 加载媒体项
-                        Task {
-                            await loadItem()
-                        }
+            Color.black.ignoresSafeArea()
+
+            // MPV 播放器
+            MPVMetalPlayerView(
+                playerObserver: playerObserver,
+                onTimeChange: { time in
+                    currentTime = time
+                },
+                onDurationChange: { duration in
+                    totalDuration = duration
+                    if duration > 0 {
+                        isLoading = false
                     }
-            } else if viewModel.isLoading {
-                // 加载状态
-                loadingView
-            } else if let errorMessage = viewModel.errorMessage {
-                // 错误状态
-                errorView(message: errorMessage)
-            } else {
-                // 初始状态
-                loadingView
+                },
+                onPlayingChange: { playing in
+                    isPlaying = playing
+                }
+            )
+            .task {
+                await loadMedia()
             }
+            .ignoresSafeArea()
 
             // 控制层
             if showControls {
                 controlsOverlay
                     .transition(.opacity)
             }
-            Button("关闭") {
-                dismiss() // 点击后关闭全屏
+
+            // 关闭按钮
+            VStack {
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        dismiss()
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(.white.opacity(0.8))
+                            .padding()
+                    }
+                }
+                Spacer()
             }
-            .foregroundColor(.white)
         }
-        .onAppear( perform: {
-            Task {
-                await loadItem()
-            }
-        })
-        .navigationBarHidden(true)
         .statusBar(hidden: true)
         .onTapGesture(count: 2) {
-            // 双击切换控制栏显示
             withAnimation {
                 showControls.toggle()
             }
         }
-        .onDisappear {
-            viewModel.onDisappear()
+    }
+
+    // MARK: - 设置
+
+    /// 加载媒体项
+    private func loadMedia() async {
+        // 等待播放器准备就绪
+        while playerObserver.player == nil {
+            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        }
+
+        guard let controller = playerObserver.player else { return }
+
+        do {
+            let authRepository = AuthRepository.shared
+            let apiService = try await authRepository.getAPIService()
+
+            // 获取播放 URL
+            let playbackURL = try await apiService.getPlaybackURL(for: itemId)
+            debugPrint("playback URL: \(playbackURL)")
+
+            controller.loadFile(playbackURL)
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
         }
     }
 
@@ -126,31 +255,56 @@ struct VideoPlayerView: View {
     /// 进度条区域
     private var progressSection: some View {
         VStack(spacing: 8) {
-            // 进度条
-            ProgressView(value: viewModel.playbackProgress)
-                .progressViewStyle(LinearProgressViewStyle(tint: .white))
-                .scaleEffect(x: 1, y: 2, anchor: .center)
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // 背景轨道
+                    Rectangle()
+                        .fill(Color.white.opacity(0.3))
+                        .frame(height: 4)
 
-            // 缓冲进度
-            ProgressView(value: viewModel.bufferingProgress)
-                .progressViewStyle(LinearProgressViewStyle(tint: .white.opacity(0.3)))
-                .scaleEffect(x: 1, y: 2, anchor: .center)
-                .offset(y: -8)
+                    // 进度
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(width: geometry.size.width * progress, height: 4)
+
+                    // 进度圆点
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 16, height: 16)
+                        .offset(x: geometry.size.width * progress - 8)
+                }
+            }
+            .frame(height: 16)
         }
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    let progress = max(0, min(1, value.location.x / UIScreen.main.bounds.width))
+                    let time = progress * totalDuration
+                    playerObserver.player?.seek(to: time)
+                    resetControlsHideTimer()
+                }
+        )
+    }
+
+    /// 进度（0.0 - 1.0）
+    private var progress: Double {
+        guard totalDuration > 0 else { return 0 }
+        return currentTime / totalDuration
     }
 
     /// 时间显示区域
     private var timeSection: some View {
         HStack {
             // 当前时间
-            Text(viewModel.formatTime(viewModel.currentTime))
+            Text(formatTime(currentTime))
                 .font(.system(size: 14))
                 .foregroundColor(.white)
 
             Spacer()
 
             // 总时长
-            Text(viewModel.formatTime(viewModel.totalDuration))
+            Text(formatTime(totalDuration))
                 .font(.system(size: 14))
                 .foregroundColor(.white.opacity(0.7))
         }
@@ -161,7 +315,8 @@ struct VideoPlayerView: View {
         HStack(spacing: 32) {
             // 快退按钮
             Button(action: {
-                viewModel.backward()
+                let newTime = max(0, currentTime - 10)
+                playerObserver.player?.seek(to: newTime)
                 resetControlsHideTimer()
             }) {
                 Image(systemName: "gobackward.10")
@@ -172,10 +327,10 @@ struct VideoPlayerView: View {
 
             // 播放/暂停按钮
             Button(action: {
-                viewModel.togglePlayPause()
+                playerObserver.player?.togglePause()
                 resetControlsHideTimer()
             }) {
-                Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
                     .font(.system(size: 64))
                     .foregroundColor(.white)
                     .frame(width: 66, height: 66)
@@ -183,7 +338,8 @@ struct VideoPlayerView: View {
 
             // 快进按钮
             Button(action: {
-                viewModel.forward()
+                let newTime = min(totalDuration, currentTime + 10)
+                playerObserver.player?.seek(to: newTime)
                 resetControlsHideTimer()
             }) {
                 Image(systemName: "goforward.10")
@@ -194,102 +350,23 @@ struct VideoPlayerView: View {
         }
     }
 
-    /// 加载视图
-    private var loadingView: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            VStack(spacing: 16) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .scaleEffect(1.5)
-
-                Text("加载中...")
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-            }
-        }
-    }
-
-    /// 错误视图
-    private func errorView(message: String) -> some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            VStack(spacing: 16) {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.system(size: 50))
-                    .foregroundColor(.orange)
-
-                Text("播放失败")
-                    .font(.headline)
-                    .foregroundColor(.white)
-
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-
-                Button("重试") {
-                    Task {
-                        await loadItem()
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.2))
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            }
-        }
-    }
-
     // MARK: - 私有方法
 
-    /// 加载媒体项
-    private func loadItem() async {
-        // 需要先获取媒体项信息
-        // 这里简化处理，假设 itemId 已经足够
-        // 实际需要从 API 获取完整的 EmbyItem
+    /// 格式化时间显示
+    private func formatTime(_ seconds: TimeInterval) -> String {
+        guard seconds.isFinite && !seconds.isNaN else { return "0:00" }
 
-        // TODO: 从 API 获取媒体项
-        // 临时创建一个模拟的媒体项用于测试
-        let mockItem = EmbyItem(
-            id: itemId,
-            name: "测试视频",
-            originalTitle: nil,
-            type: "Video",
-            collectionType: nil,
-            parentId: nil,
-            seriesName: nil,
-            seasonId: nil,
-            seasonNumber: nil,
-            indexNumber: nil,
-            episodeCount: nil,
-            premiereDate: nil,
-            endDate: nil,
-            productionYear: nil,
-            communityRating: nil,
-            userData: nil,
-            overview: nil,
-            tags: nil,
-            genres: nil,
-            studios: nil,
-            people: nil,
-            runTimeTicks: nil,
-            imageTags: nil,
-            backdropImageTags: nil,
-            poster: nil,
-            logoImagePath: nil,
-            mediaSources: nil,
-            isLive: false,
-            path: nil,
-            preferredMetadataLanguage: nil,
-            preferredMetadataCountryCode: nil
-        )
+        let secs = Int(seconds)
+        let mins = secs / 60
+        let hours = mins / 60
+        let remainingMins = mins % 60
+        let remainingSecs = secs % 60
 
-        await viewModel.loadItem(mockItem)
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, remainingMins, remainingSecs)
+        } else {
+            return String(format: "%d:%02d", mins, remainingSecs)
+        }
     }
 
     /// 重置控制栏隐藏定时器
@@ -306,5 +383,5 @@ struct VideoPlayerView: View {
 // MARK: - 预览
 
 #Preview {
-    VideoPlayerView(itemId: "test-id", viewModel: PlayerViewModel())
+    VideoPlayerView(itemId: "test-id")
 }

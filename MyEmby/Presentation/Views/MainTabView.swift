@@ -100,7 +100,7 @@ struct MainTabView: View {
             Text("分类详情页: \(categoryName)")
                 .navigationTitle(categoryName)
         case .player(let itemId):
-            VideoPlayerView(itemId: itemId, viewModel: PlayerViewModel())
+            VideoPlayerView(itemId: itemId)
         case .settings:
             Text("设置")
         }
@@ -115,7 +115,7 @@ struct MainTabView: View {
             Text("分类详情页: \(categoryName)")
                 .navigationTitle(categoryName)
         case .player(let itemId):
-            VideoPlayerView(itemId: itemId, viewModel: PlayerViewModel())
+            VideoPlayerView(itemId: itemId)
         case .settings:
             Text("设置")
         }
@@ -130,7 +130,7 @@ struct MainTabView: View {
             Text("分类详情页: \(categoryName)")
                 .navigationTitle(categoryName)
         case .player(let itemId):
-            VideoPlayerView(itemId: itemId, viewModel: PlayerViewModel())
+            VideoPlayerView(itemId: itemId)
         case .settings:
             Text("设置")
         }
