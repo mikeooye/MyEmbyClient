@@ -4,7 +4,11 @@
       "WebSearch",
       "Bash(xcodebuild:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(cat /Users/lihaozhen/Library/Developer/Xcode/DerivedData/MyEmby-elovnjmmjpopxngfpinpcjjrtuam/SourcePackages/checkouts/MPVKit/Sources/Libmpv/module.map)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
